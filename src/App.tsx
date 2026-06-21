@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Hls from 'hls.js';
 
 type Service = 'soundcloud' | 'youtube' | 'spotify';
-type ViewMode = 'search' | 'artist' | 'playlist' | 'favorites' | 'playlists';
+type ViewMode = 'search' | 'artist' | 'playlist' | 'favorites' | 'playlists' | 'downloads';
 type SearchTab = 'tracks' | 'artists' | 'playlists';
 
 interface Track {
@@ -71,6 +71,71 @@ function formatTime(ms: number): string {
   const sec = s % 60;
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const DB_NAME = '3gc-downloads';
+const DB_STORE = 'tracks';
+
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(DB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveDownload(track: Track, blob: Blob): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).put({ ...track, blob, savedAt: Date.now() }, track.id);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+async function getDownload(id: string): Promise<(Track & { blob: Blob }) | null> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readonly');
+    const req = tx.objectStore(DB_STORE).get(id);
+    req.onsuccess = () => { db.close(); resolve(req.result || null); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+async function getAllDownloads(): Promise<(Track & { blob: Blob; savedAt: number })[]> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readonly');
+    const req = tx.objectStore(DB_STORE).getAll();
+    req.onsuccess = () => { db.close(); resolve(req.result || []); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+async function removeDownload(id: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).delete(id);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+
 
 function SearchIcon() {
   return (
@@ -183,6 +248,22 @@ function MusicNoteIcon() {
   );
 }
 
+function ShuffleIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [showAuth, setShowAuth] = useState(false);
@@ -224,6 +305,13 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [shuffleOn, setShuffleOn] = useState(false);
+  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  const [downloadList, setDownloadList] = useState<(Track & { savedAt: number })[]>([]);
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
+  const [playQueue, setPlayQueue] = useState<Track[]>([]);
+  const [queueIndex, setQueueIndex] = useState(-1);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const activeServiceRef = useRef(activeService);
@@ -232,6 +320,9 @@ export default function App() {
   const isPlayingRef = useRef(isPlaying);
   const userRef = useRef(user);
   const volumeRef = useRef(volume);
+  const playQueueRef = useRef(playQueue);
+  const queueIndexRef = useRef(queueIndex);
+  const shuffleRef = useRef(shuffleOn);
 
   activeServiceRef.current = activeService;
   viewRef.current = view;
@@ -239,6 +330,9 @@ export default function App() {
   isPlayingRef.current = isPlaying;
   userRef.current = user;
   volumeRef.current = volume;
+  playQueueRef.current = playQueue;
+  queueIndexRef.current = queueIndex;
+  shuffleRef.current = shuffleOn;
 
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
@@ -246,6 +340,18 @@ export default function App() {
     }
     return audioRef.current;
   }, []);
+
+  const refreshDownloads = useCallback(async () => {
+    try {
+      const all = await getAllDownloads();
+      setDownloadList(all);
+      setDownloadedIds(new Set(all.map(d => d.id)));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    refreshDownloads();
+  }, [refreshDownloads]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -283,6 +389,15 @@ export default function App() {
     const onTimeUpdate = () => setProgress(audio.currentTime * 1000);
     const onLoadedMetadata = () => setDuration(audio.duration * 1000);
     const onEnded = () => {
+      if (playQueueRef.current.length > 0 && queueIndexRef.current >= 0) {
+        const nextIdx = queueIndexRef.current + 1;
+        if (nextIdx < playQueueRef.current.length) {
+          setQueueIndex(nextIdx);
+          const nextTrack = playQueueRef.current[nextIdx];
+          playTrackWithStream(nextTrack);
+          return;
+        }
+      }
       setIsPlaying(false);
       setDiscord(null, activeServiceRef.current, false);
     };
@@ -522,11 +637,28 @@ export default function App() {
     setAddTrackToPlaylist(null);
   }, [activePlaylistId, loadUserPlaylist]);
 
-  const playTrack = useCallback(
+  const playTrackWithStream = useCallback(
     async (track: Track) => {
       setLoading(true);
       setError(null);
       try {
+        const cached = await getDownload(track.id).catch(() => null);
+        if (cached?.blob) {
+          const audio = getAudio();
+          if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+          }
+          const blobUrl = URL.createObjectURL(cached.blob);
+          audio.src = blobUrl;
+          await audio.play();
+          setCurrentTrack(track);
+          setIsPlaying(true);
+          setDiscord(track, activeServiceRef.current, true);
+          setLoading(false);
+          return;
+        }
+
         let streamUrl = track.streamUrl;
 
         if (!streamUrl) {
@@ -586,6 +718,28 @@ export default function App() {
     [getAudio, setDiscord]
   );
 
+  const playTrack = useCallback(
+    async (track: Track, contextTracks?: Track[]) => {
+      if (contextTracks) {
+        const idx = contextTracks.findIndex(t => t.id === track.id);
+        if (shuffleRef.current) {
+          const shuffled = shuffleArray(contextTracks);
+          const sIdx = shuffled.findIndex(t => t.id === track.id);
+          setPlayQueue(shuffled);
+          setQueueIndex(sIdx >= 0 ? sIdx : 0);
+        } else {
+          setPlayQueue(contextTracks);
+          setQueueIndex(idx >= 0 ? idx : 0);
+        }
+      } else {
+        setPlayQueue([]);
+        setQueueIndex(-1);
+      }
+      await playTrackWithStream(track);
+    },
+    [playTrackWithStream]
+  );
+
   const togglePlay = useCallback(() => {
     const audio = getAudio();
     if (isPlayingRef.current) {
@@ -601,13 +755,25 @@ export default function App() {
 
   const playPrev = useCallback(() => {
     const audio = getAudio();
-    audio.currentTime = Math.max(0, audio.currentTime - 10);
-  }, [getAudio]);
+    if (playQueueRef.current.length > 0 && queueIndexRef.current > 0) {
+      const prevIdx = queueIndexRef.current - 1;
+      setQueueIndex(prevIdx);
+      playTrackWithStream(playQueueRef.current[prevIdx]);
+    } else {
+      audio.currentTime = Math.max(0, audio.currentTime - 10);
+    }
+  }, [getAudio, playTrackWithStream]);
 
   const playNext = useCallback(() => {
     const audio = getAudio();
-    audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 10);
-  }, [getAudio]);
+    if (playQueueRef.current.length > 0 && queueIndexRef.current < playQueueRef.current.length - 1) {
+      const nextIdx = queueIndexRef.current + 1;
+      setQueueIndex(nextIdx);
+      playTrackWithStream(playQueueRef.current[nextIdx]);
+    } else {
+      audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 10);
+    }
+  }, [getAudio, playTrackWithStream]);
 
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const audio = getAudio();
@@ -626,12 +792,69 @@ export default function App() {
     audio.volume = v;
   }, [getAudio]);
 
-  const handleDownload = useCallback((track: Track) => {
-    const svc = activeServiceRef.current;
-    const trackUrl = track.url || `https://www.youtube.com/watch?v=${track.id}`;
-    const params = new URLSearchParams({ url: trackUrl, service: svc, title: track.title });
-    window.open(`${API}/api/download?${params.toString()}`, '_blank');
-  }, []);
+  const handleSaveOffline = useCallback(async (track: Track) => {
+    if (downloadedIds.has(track.id)) {
+      await removeDownload(track.id);
+      setDownloadedIds(prev => { const n = new Set(prev); n.delete(track.id); return n; });
+      setDownloadList(prev => prev.filter(d => d.id !== track.id));
+      return;
+    }
+    setDownloadingIds(prev => new Set(prev).add(track.id));
+    try {
+      const svc = activeServiceRef.current;
+      const trackUrl = track.url || `https://www.youtube.com/watch?v=${track.id}`;
+      const endpoints: Record<Service, string> = {
+        soundcloud: `${API}/api/soundcloud/stream?url=${encodeURIComponent(trackUrl)}`,
+        youtube: `${API}/api/youtube/stream?url=${encodeURIComponent(trackUrl)}`,
+        spotify: `${API}/api/youtube/stream?url=${encodeURIComponent(trackUrl)}`,
+      };
+      const res = await fetch(endpoints[svc]);
+      if (!res.ok) throw new Error('Failed to get stream URL');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const streamUrl = data.streamUrl;
+      if (!streamUrl) throw new Error('No stream URL');
+
+      const isHls = streamUrl.includes('.m3u8') || streamUrl.includes('media-streaming.soundcloud.cloud');
+      let blob: Blob;
+
+      if (isHls) {
+        const m3u8Res = await fetch(streamUrl);
+        if (!m3u8Res.ok) throw new Error('Failed to fetch HLS playlist');
+        const m3u8Text = await m3u8Res.text();
+        const baseUrl = streamUrl.substring(0, streamUrl.lastIndexOf('/') + 1);
+        const segLines = m3u8Text.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+        const segUrls = segLines.map(l => l.startsWith('http') ? l : baseUrl + l);
+        const chunks: ArrayBuffer[] = [];
+        for (const segUrl of segUrls) {
+          const segRes = await fetch(segUrl);
+          if (!segRes.ok) continue;
+          const ab = await segRes.arrayBuffer();
+          chunks.push(ab);
+        }
+        blob = new Blob(chunks, { type: 'audio/mpeg' });
+      } else {
+        const audioRes = await fetch(streamUrl);
+        if (!audioRes.ok) throw new Error('Failed to download audio');
+        blob = await audioRes.blob();
+      }
+
+      await saveDownload({ ...track, streamUrl }, blob);
+      setDownloadedIds(prev => new Set(prev).add(track.id));
+      setDownloadList(prev => [...prev, { ...track, streamUrl, savedAt: Date.now() }]);
+    } catch (err: any) {
+      setError(`Download failed: ${err.message}`);
+    } finally {
+      setDownloadingIds(prev => { const n = new Set(prev); n.delete(track.id); return n; });
+    }
+  }, [downloadedIds]);
+
+  const handleDownloadPlaylist = useCallback(async (trackList: Track[]) => {
+    for (const track of trackList) {
+      if (downloadedIds.has(track.id)) continue;
+      await handleSaveOffline(track);
+    }
+  }, [downloadedIds, handleSaveOffline]);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -898,6 +1121,22 @@ export default function App() {
                 )}
               </>
             )}
+
+            <div className="text-[10px] text-white/20 uppercase tracking-[0.15em] px-4 py-2 mt-4 font-semibold">Downloads</div>
+            <button
+              onClick={() => { setView('downloads'); setSelectedArtist(null); setSelectedPlaylist(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-200 ${
+                view === 'downloads' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
+              }`}
+            >
+              <span className="text-green-400">
+                <DownloadIcon />
+              </span>
+              Saved Offline
+              {downloadedIds.size > 0 && (
+                <span className="ml-auto text-xs text-white/25">{downloadedIds.size}</span>
+              )}
+            </button>
           </div>
         </aside>
 
@@ -948,7 +1187,7 @@ export default function App() {
                               currentTrack?.id === track.id ? 'ring-2 ring-green-500/40 bg-green-500/5' : ''
                             }`}
                             style={{ animationDelay: `${Math.min(i * 40, 300)}ms` }}
-                            onClick={() => playTrack(track)}
+                            onClick={() => playTrack(track, tracks)}
                           >
                             <div className="relative mb-3 rounded-xl overflow-hidden">
                               {track.thumbnail ? (
@@ -959,7 +1198,7 @@ export default function App() {
                                 </div>
                               )}
                               <button
-                                onClick={(e) => { e.stopPropagation(); playTrack(track); }}
+                                onClick={(e) => { e.stopPropagation(); playTrack(track, tracks); }}
                                 className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-all duration-300"
                               >
                                 <div className="w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-xl shadow-green-500/30 transform scale-75 group-hover:scale-100 transition-transform duration-300">
@@ -992,11 +1231,17 @@ export default function App() {
                                   <PlaylistIcon />
                                 </button>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleDownload(track); }}
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white/25 hover:text-green-400 hover:bg-white/[0.06] transition-all duration-200"
-                                  title="Download"
+                                  onClick={(e) => { e.stopPropagation(); handleSaveOffline(track); }}
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                                    downloadingIds.has(track.id)
+                                      ? 'text-yellow-400 animate-pulse'
+                                      : downloadedIds.has(track.id)
+                                        ? 'text-green-400 hover:text-red-400 hover:bg-white/[0.06]'
+                                        : 'text-white/25 hover:text-green-400 hover:bg-white/[0.06]'
+                                  }`}
+                                  title={downloadedIds.has(track.id) ? 'Remove offline' : 'Save offline'}
                                 >
-                                  <DownloadIcon />
+                                  {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
                                 </button>
                               </div>
                             </div>
@@ -1088,12 +1333,20 @@ export default function App() {
                     <h1 className="text-5xl font-extrabold mb-3 truncate tracking-tight">{selectedArtist.name}</h1>
                     <p className="text-sm text-white/35">{selectedArtist.trackCount} tracks</p>
                     {artistTracks.length > 0 && (
-                      <button
-                        onClick={() => playTrack(artistTracks[0])}
-                        className="mt-5 px-7 py-3.5 rounded-full bg-green-500 hover:bg-green-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        <PlayIcon /> Play All
-                      </button>
+                      <div className="flex items-center gap-3 mt-5">
+                        <button
+                          onClick={() => playTrack(artistTracks[0], artistTracks)}
+                          className="px-7 py-3.5 rounded-full bg-green-500 hover:bg-green-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          <PlayIcon /> Play All
+                        </button>
+                        <button
+                          onClick={() => handleDownloadPlaylist(artistTracks)}
+                          className="px-5 py-3.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 text-white/60 hover:text-white"
+                        >
+                          <DownloadIcon /> Download All
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1110,10 +1363,10 @@ export default function App() {
                       style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                     >
                       <span className="text-sm text-white/15 w-6 text-center tabular-nums group-hover:hidden">{i + 1}</span>
-                      <button onClick={() => playTrack(track)} className="w-6 text-center hidden group-hover:block">
+                      <button onClick={() => playTrack(track, artistTracks)} className="w-6 text-center hidden group-hover:block">
                         <svg className="w-4 h-4 mx-auto" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                       </button>
-                      <button onClick={() => playTrack(track)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
+                      <button onClick={() => playTrack(track, artistTracks)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
                         {track.thumbnail ? (
                           <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover flex-shrink-0 shadow-sm" loading="lazy" />
                         ) : (
@@ -1137,10 +1390,16 @@ export default function App() {
                           <HeartIcon filled={isFavorited(track.id)} />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDownload(track); }}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/30 hover:text-green-400 transition-all"
+                          onClick={(e) => { e.stopPropagation(); handleSaveOffline(track); }}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                            downloadingIds.has(track.id)
+                              ? 'text-yellow-400 animate-pulse'
+                              : downloadedIds.has(track.id)
+                                ? 'text-green-400 hover:text-red-400'
+                                : 'text-white/30 hover:text-green-400'
+                          }`}
                         >
-                          <DownloadIcon />
+                          {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
                         </button>
                       </div>
                     </div>
@@ -1178,12 +1437,20 @@ export default function App() {
                     </p>
                     {selectedPlaylist.description && <p className="text-sm text-white/25 mt-1.5">{selectedPlaylist.description}</p>}
                     {playlistTracks.length > 0 && (
-                      <button
-                        onClick={() => playTrack(playlistTracks[0])}
-                        className="mt-5 px-7 py-3.5 rounded-full bg-green-500 hover:bg-green-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        <PlayIcon /> Play All
-                      </button>
+                      <div className="flex items-center gap-3 mt-5">
+                        <button
+                          onClick={() => playTrack(playlistTracks[0], playlistTracks)}
+                          className="px-7 py-3.5 rounded-full bg-green-500 hover:bg-green-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          <PlayIcon /> Play All
+                        </button>
+                        <button
+                          onClick={() => handleDownloadPlaylist(playlistTracks)}
+                          className="px-5 py-3.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 text-white/60 hover:text-white"
+                        >
+                          <DownloadIcon /> Download All
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1200,10 +1467,10 @@ export default function App() {
                       style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                     >
                       <span className="text-sm text-white/15 w-6 text-center tabular-nums group-hover:hidden">{i + 1}</span>
-                      <button onClick={() => playTrack(track)} className="w-6 text-center hidden group-hover:block">
+                      <button onClick={() => playTrack(track, playlistTracks)} className="w-6 text-center hidden group-hover:block">
                         <svg className="w-4 h-4 mx-auto" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                       </button>
-                      <button onClick={() => playTrack(track)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
+                      <button onClick={() => playTrack(track, playlistTracks)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
                         {track.thumbnail ? (
                           <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover flex-shrink-0 shadow-sm" loading="lazy" />
                         ) : (
@@ -1227,10 +1494,16 @@ export default function App() {
                           <HeartIcon filled={isFavorited(track.id)} />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDownload(track); }}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/30 hover:text-green-400 transition-all"
+                          onClick={(e) => { e.stopPropagation(); handleSaveOffline(track); }}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                            downloadingIds.has(track.id)
+                              ? 'text-yellow-400 animate-pulse'
+                              : downloadedIds.has(track.id)
+                                ? 'text-green-400 hover:text-red-400'
+                                : 'text-white/30 hover:text-green-400'
+                          }`}
                         >
-                          <DownloadIcon />
+                          {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
                         </button>
                       </div>
                     </div>
@@ -1254,6 +1527,22 @@ export default function App() {
                     <p className="text-sm text-white/20">Heart tracks to add them here</p>
                   </div>
                 )}
+                {displayFavorites.length > 0 && (
+                  <div className="flex items-center gap-3 mb-6">
+                    <button
+                      onClick={() => playTrack(displayFavorites[0], displayFavorites)}
+                      className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <PlayIcon /> Play All
+                    </button>
+                    <button
+                      onClick={() => handleDownloadPlaylist(displayFavorites)}
+                      className="px-5 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-sm font-semibold transition-all duration-200 flex items-center gap-2 text-white/60 hover:text-white"
+                    >
+                      <DownloadIcon /> Download All
+                    </button>
+                  </div>
+                )}
                 <div className="space-y-0.5">
                   {displayFavorites.map((track) => (
                     <div
@@ -1264,7 +1553,7 @@ export default function App() {
                           : 'hover:bg-white/[0.04] text-white/70 hover:text-white'
                       }`}
                     >
-                      <button onClick={() => playTrack(track)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
+                      <button onClick={() => playTrack(track, displayFavorites)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
                         {track.thumbnail ? (
                           <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover flex-shrink-0 shadow-sm" loading="lazy" />
                         ) : (
@@ -1292,10 +1581,90 @@ export default function App() {
                           <PlaylistIcon />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDownload(track); }}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/25 hover:text-green-400 hover:bg-white/[0.06] opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          onClick={(e) => { e.stopPropagation(); handleSaveOffline(track); }}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 ${
+                            downloadingIds.has(track.id)
+                              ? 'text-yellow-400 animate-pulse'
+                              : downloadedIds.has(track.id)
+                                ? 'text-green-400 hover:text-red-400'
+                                : 'text-white/25 hover:text-green-400 hover:bg-white/[0.06]'
+                          }`}
                         >
-                          <DownloadIcon />
+                          {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {view === 'downloads' && (
+              <div>
+                <h1 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                  <span className="text-green-400"><DownloadIcon /></span>
+                  Saved Offline
+                </h1>
+                {downloadList.length === 0 && !loading && (
+                  <div className="flex flex-col items-center justify-center py-24 text-white/15">
+                    <div className="w-24 h-24 rounded-3xl bg-white/[0.03] flex items-center justify-center mb-5 ring-1 ring-white/[0.06]">
+                      <DownloadIcon />
+                    </div>
+                    <p className="text-xl font-semibold mb-1.5">No downloads yet</p>
+                    <p className="text-sm text-white/20">Save tracks for offline listening</p>
+                  </div>
+                )}
+                {downloadList.length > 0 && (
+                  <div className="flex items-center gap-3 mb-6">
+                    <button
+                      onClick={() => playTrack(downloadList[0], downloadList)}
+                      className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <PlayIcon /> Play All
+                    </button>
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  {downloadList.map((track) => (
+                    <div
+                      key={track.id}
+                      className={`animate-fade-in flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
+                        currentTrack?.id === track.id
+                          ? 'bg-green-500/10 text-green-300'
+                          : 'hover:bg-white/[0.04] text-white/70 hover:text-white'
+                      }`}
+                    >
+                      <button onClick={() => playTrack(track, downloadList)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
+                        {track.thumbnail ? (
+                          <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover flex-shrink-0 shadow-sm" loading="lazy" />
+                        ) : (
+                          <div className="w-11 h-11 rounded-lg bg-white/[0.03] flex items-center justify-center flex-shrink-0">
+                            <MusicNoteIcon />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm truncate">{track.title}</div>
+                          <div className="text-xs text-white/35 truncate">{track.artist}</div>
+                        </div>
+                        <span className="text-xs text-white/20 tabular-nums">{formatTime(track.duration)}</span>
+                      </button>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(track); }}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                            isFavorited(track.id) ? 'text-red-400 hover:text-red-300' : 'text-white/25 hover:text-red-400 hover:bg-white/[0.06]'
+                          }`}
+                        >
+                          <HeartIcon filled={isFavorited(track.id)} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSaveOffline(track); }}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          title="Remove offline"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -1339,12 +1708,20 @@ export default function App() {
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-lg font-bold">{playlists.find(p => p.id === activePlaylistId)?.name}</h2>
-                      <button
-                        onClick={() => { if (userPlaylistTracks.length > 0) playTrack(userPlaylistTracks[0]); }}
-                        className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        <PlayIcon /> Play All
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => { if (userPlaylistTracks.length > 0) playTrack(userPlaylistTracks[0], userPlaylistTracks); }}
+                          className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          <PlayIcon /> Play All
+                        </button>
+                        <button
+                          onClick={() => handleDownloadPlaylist(userPlaylistTracks)}
+                          className="px-5 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-sm font-semibold transition-all duration-200 flex items-center gap-2 text-white/60 hover:text-white"
+                        >
+                          <DownloadIcon /> Download All
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-0.5">
                       {userPlaylistTracks.map((track) => (
@@ -1356,7 +1733,7 @@ export default function App() {
                               : 'hover:bg-white/[0.04] text-white/70 hover:text-white'
                           }`}
                         >
-                          <button onClick={() => playTrack(track)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
+                          <button onClick={() => playTrack(track, userPlaylistTracks)} className="flex-1 flex items-center gap-4 min-w-0 text-left">
                             {track.thumbnail ? (
                               <img src={track.thumbnail} alt="" className="w-11 h-11 rounded-lg object-cover flex-shrink-0 shadow-sm" loading="lazy" />
                             ) : (
@@ -1380,10 +1757,16 @@ export default function App() {
                               <HeartIcon filled={isFavorited(track.id)} />
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleDownload(track); }}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-white/25 hover:text-green-400 hover:bg-white/[0.06] transition-all duration-200"
+                              onClick={(e) => { e.stopPropagation(); handleSaveOffline(track); }}
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                                downloadingIds.has(track.id)
+                                  ? 'text-yellow-400 animate-pulse'
+                                  : downloadedIds.has(track.id)
+                                    ? 'text-green-400 hover:text-red-400 hover:bg-white/[0.06]'
+                                    : 'text-white/25 hover:text-green-400 hover:bg-white/[0.06]'
+                              }`}
                             >
-                              <DownloadIcon />
+                              {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
                             </button>
                           </div>
                         </div>
@@ -1468,6 +1851,15 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShuffleOn(!shuffleOn)}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                shuffleOn ? 'text-green-400 bg-green-500/10' : 'text-white/30 hover:text-white'
+              }`}
+              title="Shuffle"
+            >
+              <ShuffleIcon />
+            </button>
             <span className="text-white/25">
               <VolumeIcon volume={volume} />
             </span>
@@ -1483,11 +1875,17 @@ export default function App() {
           </div>
 
           <button
-            onClick={() => handleDownload(currentTrack)}
-            className="w-9 h-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center text-white/35 hover:text-green-400 transition-all duration-200"
-            title="Download"
+            onClick={() => handleSaveOffline(currentTrack)}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
+              downloadingIds.has(currentTrack.id)
+                ? 'text-yellow-400 bg-yellow-500/10'
+                : downloadedIds.has(currentTrack.id)
+                  ? 'text-green-400 bg-green-500/10 hover:text-red-400'
+                  : 'bg-white/[0.04] hover:bg-white/[0.08] text-white/35 hover:text-green-400'
+            }`}
+            title={downloadedIds.has(currentTrack.id) ? 'Remove offline' : 'Save offline'}
           >
-            <DownloadIcon />
+            {downloadedIds.has(currentTrack.id) ? <CheckIcon /> : <DownloadIcon />}
           </button>
         </div>
       )}
