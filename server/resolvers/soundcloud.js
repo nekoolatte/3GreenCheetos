@@ -216,11 +216,18 @@ export async function getSoundCloudArtistTracks(artistUrl) {
     description: resolved.description || '',
     url: resolved.permalink_url,
   };
-  const tracksRes = await fetch(`https://api-v2.soundcloud.com/users/${resolved.id}/tracks?client_id=${key}&limit=50`);
-  if (!tracksRes.ok) return { artist, tracks: [] };
-  const tracksData = await tracksRes.json();
-  const tracks = (tracksData.collection || []).map(mapTrack);
-  return { artist, tracks };
+  let allTracks = [];
+  let nextUrl = `https://api-v2.soundcloud.com/users/${resolved.id}/tracks?client_id=${key}&limit=200&offset=0`;
+  while (nextUrl) {
+    const tracksRes = await fetch(nextUrl);
+    if (!tracksRes.ok) break;
+    const tracksData = await tracksRes.json();
+    if (!tracksData.collection?.length) break;
+    allTracks.push(...tracksData.collection.map(mapTrack));
+    if (!tracksData.next_href) break;
+    nextUrl = tracksData.next_href.includes('client_id') ? tracksData.next_href : tracksData.next_href + '&client_id=' + key;
+  }
+  return { artist, tracks: allTracks };
 }
 
 export async function searchSoundCloudArtists(query, limit = 10) {

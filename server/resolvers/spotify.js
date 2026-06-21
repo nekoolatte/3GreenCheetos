@@ -72,18 +72,30 @@ export async function searchSpotifyArtists(query, limit = 10) {
 }
 
 export async function getSpotifyArtistTracks(artistName) {
-  const searchQuery = `${artistName} official music`;
-  const results = await YouTube.search(searchQuery, { limit: 30, type: 'video' });
-  const tracks = results.map((vid) => ({
-    id: vid.id,
-    title: vid.title,
-    artist: artistName,
-    duration: vid.duration || 0,
-    thumbnail: vid.thumbnail?.url || null,
-    url: vid.url,
-    source: 'spotify-proxy',
-  }));
-  return { artist: { name: artistName, avatar: null }, tracks };
+  const queries = [
+    `${artistName} official music`,
+    `${artistName} music video`,
+    `${artistName} songs`,
+  ];
+  const allResults = [];
+  const seenIds = new Set();
+  for (const searchQuery of queries) {
+    const results = await YouTube.search(searchQuery, { limit: 30, type: 'video' });
+    for (const vid of results) {
+      if (seenIds.has(vid.id)) continue;
+      seenIds.add(vid.id);
+      allResults.push({
+        id: vid.id,
+        title: vid.title,
+        artist: vid.channel?.name || artistName,
+        duration: vid.duration || 0,
+        thumbnail: vid.thumbnail?.url || null,
+        url: vid.url,
+        source: 'spotify-proxy',
+      });
+    }
+  }
+  return { artist: { name: artistName, avatar: null }, tracks: allResults };
 }
 
 export async function searchSpotifyPlaylists(query, limit = 20) {
