@@ -50,45 +50,41 @@ export async function searchSoundCloud(query, limit = 50) {
 }
 
 async function resolveStreamFromTranscodings(transcodings, key) {
-  for (const t of transcodings) {
+  const preferred = ['progressive', 'hls', 'encrypted-hls'];
+  const sorted = [...transcodings].sort((a, b) => {
+    const ai = preferred.indexOf(a.format?.protocol);
+    const bi = preferred.indexOf(b.format?.protocol);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  for (const t of sorted) {
     const proto = t.format?.protocol;
-    if (proto !== 'progressive' && proto !== 'hls') continue;
+    if (!proto) continue;
     if (t.format?.mime_type && !t.format.mime_type.startsWith('audio/')) continue;
 
     try {
       const res = await fetch(`${t.url}?client_id=${key}`);
       if (!res.ok) continue;
       const data = await res.json();
-      if (data.url) return { url: data.url, protocol: proto };
+      if (data.url) return { url: data.url, protocol: proto === 'encrypted-hls' ? 'hls' : proto };
     } catch {}
   }
   return null;
 }
 
-async function resolveEncryptedHLS(transcodings, key) {
-  for (const t of transcodings) {
-    const proto = t.format?.protocol;
-    if (!proto?.includes('encrypted-hls')) continue;
-    if (t.format?.mime_type !== 'audio/mp4; codecs="mp4a.40.2"') continue;
-    if (t.quality !== 'sq') continue;
-
+async function tryFetchTranscoding(url, key) {
+  const attempts = [
+    `${url}?client_id=${key}`,
+    url,
+  ];
+  for (const attempt of attempts) {
     try {
-      const res = await fetch(`${t.url}?client_id=${key}`);
+      const res = await fetch(attempt, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
       if (!res.ok) continue;
       const data = await res.json();
-      if (data.url) return { url: data.url, protocol: 'hls' };
-    } catch {}
-  }
-  for (const t of transcodings) {
-    const proto = t.format?.protocol;
-    if (!proto?.includes('encrypted-hls')) continue;
-    if (t.format?.mime_type !== 'audio/mp4; codecs="mp4a.40.2"') continue;
-
-    try {
-      const res = await fetch(`${t.url}?client_id=${key}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data.url) return { url: data.url, protocol: 'hls' };
+      if (data.url) return data.url;
     } catch {}
   }
   return null;
@@ -129,19 +125,23 @@ export async function resolveSoundCloudStream(url) {
   }
 
   if (!trackData || !trackData.media) {
-    const songInfo = await client.getSongInfo(url, { fetchStreamURL: true });
-    return {
-      id: String(songInfo.id),
-      title: songInfo.title,
-      artist: songInfo.author?.name || 'Unknown',
-      duration: songInfo.duration,
-      thumbnail: songInfo.thumbnail,
-      streamUrl: songInfo.streamURL || null,
-      type: 'hls',
-    };
+    try {
+      const songInfo = await client.getSongInfo(url, { fetchStreamURL: true });
+      if (songInfo?.streamURL) {
+        return {
+          id: String(songInfo.id),
+          title: songInfo.title,
+          artist: songInfo.author?.name || 'Unknown',
+          duration: songInfo.duration,
+          thumbnail: songInfo.thumbnail,
+          streamUrl: songInfo.streamURL,
+          type: 'progressive',
+        };
+      }
+    } catch {}
   }
 
-  const transcodings = trackData.media?.transcodings || [];
+  const transcodings = trackData?.media?.transcodings || [];
   let result = await resolveStreamFromTranscodings(transcodings, key);
 
   if (!result) {
@@ -149,21 +149,23 @@ export async function resolveSoundCloudStream(url) {
     result = await resolveStreamFromTranscodings(transcodings, key);
   }
 
-  if (!result) {
-    let encResult = await resolveEncryptedHLS(transcodings, key);
-    if (!encResult) {
-      key = await refreshApiKey();
-      encResult = await resolveEncryptedHLS(transcodings, key);
+  if (!result && trackData?.media?.transcodings) {
+    for (const t of trackData.media.transcodings) {
+      const streamUrl = await tryFetchTranscoding(t.url, key);
+      if (streamUrl) {
+        const proto = t.format?.protocol;
+        result = { url: streamUrl, protocol: proto === 'encrypted-hls' ? 'hls' : proto };
+        break;
+      }
     }
-    if (encResult) result = encResult;
   }
 
   return {
-    id: String(trackData.id),
-    title: trackData.title,
-    artist: trackData.user?.username || 'Unknown',
-    duration: trackData.duration,
-    thumbnail: trackData.artwork_url?.replace('-large', '-t500x500') || null,
+    id: String(trackData?.id || trackId || ''),
+    title: trackData?.title || 'Unknown',
+    artist: trackData?.user?.username || 'Unknown',
+    duration: trackData?.duration || 0,
+    thumbnail: trackData?.artwork_url?.replace('-large', '-t500x500') || null,
     streamUrl: result?.url || null,
     type: result?.protocol || 'hls',
   };

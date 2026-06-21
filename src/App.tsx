@@ -977,13 +977,13 @@ export default function App() {
         </div>
       )}
 
-      <header className="h-16 flex items-center gap-5 px-6 bg-gray-900/40 backdrop-blur-xl border-b border-white/[0.04] flex-shrink-0 z-10">
+      <header className="h-16 flex items-center gap-6 px-8 bg-gray-900/40 backdrop-blur-xl border-b border-white/[0.04] flex-shrink-0 z-10">
         <div className="flex items-center gap-3">
           <img src={`${import.meta.env.BASE_URL}icon.jpg`} alt="icon" className="w-9 h-9 rounded-xl shadow-md shadow-black/30 ring-1 ring-white/[0.06]" />
           <span className="text-lg font-bold whitespace-nowrap bg-gradient-to-r from-green-400 to-green-600 bg-clip-text text-transparent">3 Green Cheetos</span>
         </div>
 
-        <div className="flex-1 max-w-2xl mx-4">
+        <div className="flex-1 mx-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/20">
               <SearchIcon />
@@ -994,7 +994,7 @@ export default function App() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               placeholder="Search for music..."
-              className="w-full pl-12 pr-5 py-2.5 rounded-full bg-white/[0.03] border border-white/[0.05] text-white placeholder-white/20 outline-none focus:border-green-500/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(34,197,94,0.08)] transition-all duration-300 text-sm"
+              className="w-full pl-12 pr-6 py-3 rounded-full bg-white/[0.03] border border-white/[0.05] text-white placeholder-white/20 outline-none focus:border-green-500/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(34,197,94,0.08)] transition-all duration-300 text-sm"
             />
           </div>
         </div>
@@ -1030,8 +1030,8 @@ export default function App() {
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <aside className="w-[280px] bg-gray-900/30 border-r border-white/[0.04] flex flex-col overflow-hidden flex-shrink-0 backdrop-blur-sm">
-          <div className="p-4 flex-1 overflow-y-auto space-y-0.5">
+        <aside className="w-[320px] bg-gray-900/30 border-r border-white/[0.04] flex flex-col overflow-hidden flex-shrink-0 backdrop-blur-sm">
+          <div className="p-5 flex-1 overflow-y-auto space-y-1">
             <div className="text-[10px] text-white/20 uppercase tracking-[0.15em] px-4 py-2 font-semibold">Services</div>
             {(Object.keys(SERVICES) as Service[]).map((key) => (
               <button
@@ -1048,7 +1048,7 @@ export default function App() {
                   setActivePlaylistId(null);
                   setUserPlaylistTracks([]);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                   view === 'search' && activeService === key
                     ? 'bg-white/[0.06] text-white shadow-sm ring-1 ring-white/[0.04]'
                     : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
@@ -1064,7 +1064,7 @@ export default function App() {
                 <div className="text-[10px] text-white/20 uppercase tracking-[0.15em] px-4 py-2 mt-4 font-semibold">Library</div>
                 <button
                   onClick={loadFavorites}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm transition-all duration-200 ${
                     view === 'favorites' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
                   }`}
                 >
@@ -1075,7 +1075,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={loadUserPlaylists}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm transition-all duration-200 ${
                     view === 'playlists' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
                   }`}
                 >
@@ -1125,7 +1125,7 @@ export default function App() {
             <div className="text-[10px] text-white/20 uppercase tracking-[0.15em] px-4 py-2 mt-4 font-semibold">Downloads</div>
             <button
               onClick={() => { setView('downloads'); setSelectedArtist(null); setSelectedPlaylist(null); }}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-200 ${
+              className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm transition-all duration-200 ${
                 view === 'downloads' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
               }`}
             >
@@ -1141,7 +1141,7 @@ export default function App() {
         </aside>
 
         <main className="flex-1 min-h-0 overflow-y-auto">
-          <div className="p-6">
+          <div className="p-8">
             {error && (
               <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/[0.08] border border-red-500/15 text-red-400 text-sm backdrop-blur-sm">
                 {error}
@@ -1162,7 +1162,7 @@ export default function App() {
 
                 {(tracks.length > 0 || allArtists.length > 0 || allPlaylists.length > 0) && (
                   <>
-                    <div className="flex items-center gap-2 mb-8">
+                    <div className="flex items-center gap-3 mb-8">
                       {(['tracks', 'artists', 'playlists'] as SearchTab[]).map((tab) => (
                         <button
                           key={tab}
@@ -1179,7 +1179,7 @@ export default function App() {
                     </div>
 
                     {searchTab === 'tracks' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {tracks.map((track, i) => (
                           <div
                             key={track.id}
@@ -1251,7 +1251,7 @@ export default function App() {
                     )}
 
                     {searchTab === 'artists' && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                         {allArtists.map((artist, i) => (
                           <button
                             key={artist.id}
@@ -1278,7 +1278,7 @@ export default function App() {
                     )}
 
                     {searchTab === 'playlists' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {allPlaylists.map((playlist, i) => (
                           <button
                             key={playlist.id}
@@ -1797,8 +1797,8 @@ export default function App() {
       </div>
 
       {currentTrack && (
-        <div className="h-[88px] bg-gray-900/95 backdrop-blur-xl border-t border-white/[0.04] flex items-center gap-5 px-5 flex-shrink-0 shadow-[0_-4px_30px_rgba(0,0,0,0.4)]">
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/[0.03] flex-shrink-0 shadow-lg ring-1 ring-white/[0.04]">
+        <div className="h-[96px] bg-gray-900/95 backdrop-blur-xl border-t border-white/[0.04] flex items-center gap-6 px-6 flex-shrink-0 shadow-[0_-4px_30px_rgba(0,0,0,0.4)]">
+          <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/[0.03] flex-shrink-0 shadow-lg ring-1 ring-white/[0.04]">
             {currentTrack.thumbnail ? (
               <img src={currentTrack.thumbnail} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -1808,7 +1808,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="w-52 min-w-0">
+          <div className="w-60 min-w-0">
             <div className="text-sm font-semibold truncate text-white">{currentTrack.title}</div>
             <div className="text-xs text-white/35 truncate mt-0.5">{currentTrack.artist}</div>
           </div>
