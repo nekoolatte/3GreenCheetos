@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.log
+release/
+.DS_Store
+Thumbs.db
+*-player-script.js
+.vercel

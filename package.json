@@ -1,0 +1,69 @@
+{
+  "name": "3-green-cheetos",
+  "version": "1.0.0",
+  "description": "3 Green Cheetos - Unified music player",
+  "type": "module",
+  "main": "electron/main.js",
+  "author": "",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev:vite": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "start": "node server/index.js",
+    "electron:dev": "electron .",
+    "electron:build": "vite build && electron-builder"
+  },
+  "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "@libsql/client": "^0.17.4",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "hls.js": "^1.6.16",
+    "jsonwebtoken": "^9.0.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "soundcloud-scraper": "^5.0.3",
+    "youtube-sr": "^4.3.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "concurrently": "^10.0.3",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "tailwindcss": "^4.3.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.3greencheetos.app",
+    "productName": "3 Green Cheetos",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*",
+      "server/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.jpg"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.jpg"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icon.jpg"
+    }
+  }
+}
