@@ -786,7 +786,10 @@ export default function App() {
           audio.src = streamUrl;
           await audio.play();
         } else {
-          audio.src = streamUrl;
+          const svc = activeServiceRef.current;
+          const needsProxy = (svc === 'youtube' || svc === 'spotify') && streamUrl && !streamUrl.startsWith(API);
+          const finalUrl = needsProxy ? `${API}/api/proxy-stream?url=${encodeURIComponent(streamUrl)}` : streamUrl;
+          audio.src = finalUrl;
           await audio.play();
         }
 
@@ -919,7 +922,8 @@ export default function App() {
         }
         blob = new Blob(chunks, { type: 'audio/mpeg' });
       } else {
-        const audioRes = await fetch(streamUrl);
+        const proxyUrl = (svc === 'youtube' || svc === 'spotify') ? `${API}/api/proxy-stream?url=${encodeURIComponent(streamUrl)}` : streamUrl;
+        const audioRes = await fetch(proxyUrl);
         if (!audioRes.ok) throw new Error('Failed to download audio');
         blob = await audioRes.blob();
       }
@@ -1080,7 +1084,7 @@ export default function App() {
 
         <div className="flex-1 min-w-0 max-w-2xl">
           <div className="relative">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/30">
+            <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-white/30">
               <SearchIcon />
             </div>
             <input
@@ -1089,7 +1093,7 @@ export default function App() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               placeholder="Search for music..."
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-violet-500/10 text-white placeholder-white/25 outline-none focus:border-violet-500/40 focus:bg-white/[0.06] transition-all duration-300 text-sm truncate"
+              className="w-full pl-12 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-violet-500/10 text-white placeholder-white/25 outline-none focus:border-violet-500/40 focus:bg-white/[0.06] transition-all duration-300 text-sm truncate"
             />
           </div>
         </div>
