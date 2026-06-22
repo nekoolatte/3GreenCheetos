@@ -1393,6 +1393,12 @@ export default function App() {
                     {artistTracks.length > 0 && (
                       <div className="flex items-center gap-3 mt-5">
                         <button
+                          onClick={() => { setShuffleOn(true); playTrack(artistTracks[Math.floor(Math.random() * artistTracks.length)], artistTracks); }}
+                          className="px-5 py-3.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 text-white/60 hover:text-white"
+                        >
+                          <ShuffleIcon /> Shuffle
+                        </button>
+                        <button
                           onClick={() => playTrack(artistTracks[0], artistTracks)}
                           className="px-7 py-3.5 rounded-full bg-green-500 hover:bg-green-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
                         >
@@ -1497,6 +1503,12 @@ export default function App() {
                     {playlistTracks.length > 0 && (
                       <div className="flex items-center gap-3 mt-5">
                         <button
+                          onClick={() => { setShuffleOn(true); playTrack(playlistTracks[Math.floor(Math.random() * playlistTracks.length)], playlistTracks); }}
+                          className="px-5 py-3.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 text-white/60 hover:text-white"
+                        >
+                          <ShuffleIcon /> Shuffle
+                        </button>
+                        <button
                           onClick={() => playTrack(playlistTracks[0], playlistTracks)}
                           className="px-7 py-3.5 rounded-full bg-green-500 hover:bg-green-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
                         >
@@ -1588,6 +1600,12 @@ export default function App() {
                 {displayFavorites.length > 0 && (
                   <div className="flex items-center gap-3 mb-6">
                     <button
+                      onClick={() => { setShuffleOn(true); playTrack(displayFavorites[Math.floor(Math.random() * displayFavorites.length)], displayFavorites); }}
+                      className="px-5 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-sm font-semibold transition-all duration-200 flex items-center gap-2 text-white/60 hover:text-white"
+                    >
+                      <ShuffleIcon /> Shuffle
+                    </button>
+                    <button
                       onClick={() => playTrack(displayFavorites[0], displayFavorites)}
                       className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
                     >
@@ -1674,6 +1692,12 @@ export default function App() {
                 )}
                 {downloadList.length > 0 && (
                   <div className="flex items-center gap-3 mb-6">
+                    <button
+                      onClick={() => { setShuffleOn(true); playTrack(downloadList[Math.floor(Math.random() * downloadList.length)], downloadList); }}
+                      className="px-5 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-sm font-semibold transition-all duration-200 flex items-center gap-2 text-white/60 hover:text-white"
+                    >
+                      <ShuffleIcon /> Shuffle
+                    </button>
                     <button
                       onClick={() => playTrack(downloadList[0], downloadList)}
                       className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
@@ -1767,6 +1791,12 @@ export default function App() {
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-lg font-bold">{playlists.find(p => p.id === activePlaylistId)?.name}</h2>
                       <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => { setShuffleOn(true); if (userPlaylistTracks.length > 0) playTrack(userPlaylistTracks[Math.floor(Math.random() * userPlaylistTracks.length)], userPlaylistTracks); }}
+                          className="px-5 py-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-sm font-semibold transition-all duration-200 flex items-center gap-2 text-white/60 hover:text-white"
+                        >
+                          <ShuffleIcon /> Shuffle
+                        </button>
                         <button
                           onClick={() => { if (userPlaylistTracks.length > 0) playTrack(userPlaylistTracks[0], userPlaylistTracks); }}
                           className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
