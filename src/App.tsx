@@ -1028,9 +1028,9 @@ export default function App() {
       )}
 
       <header className="h-16 flex items-center gap-4 px-5 bg-gray-900/40 backdrop-blur-xl border-b border-white/[0.04] flex-shrink-0 z-10">
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <img src={`${import.meta.env.BASE_URL}icon.jpg`} alt="icon" className="w-9 h-9 rounded-xl shadow-md shadow-black/30 ring-1 ring-white/[0.06]" />
-          <span className="text-lg font-bold whitespace-nowrap text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">3 Green Cheetos</span>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <img src={`${import.meta.env.BASE_URL}icon.jpg`} alt="icon" className="w-11 h-11 rounded-xl shadow-md shadow-black/30 ring-1 ring-white/[0.06]" />
+          <span className="text-xl font-bold whitespace-nowrap text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.35)]">3 Green Cheetos</span>
         </div>
 
         <div className="flex-1 min-w-0 max-w-2xl">
