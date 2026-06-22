@@ -23,10 +23,12 @@
     "express": "^5.2.1",
     "hls.js": "^1.6.16",
     "jsonwebtoken": "^9.0.3",
+    "play-dl": "^1.9.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "soundcloud-scraper": "^5.0.3",
-    "youtube-sr": "^4.3.12"
+    "youtube-sr": "^4.3.12",
+    "youtubei.js": "^17.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",

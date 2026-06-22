@@ -1,14 +1,22 @@
 import { YouTube } from 'youtube-sr';
+import { Innertube, Platform, Log } from 'youtubei.js';
 
-const INVIDIOUS_INSTANCES = [
-  'https://inv.nadeko.net',
-  'https://invidious.fdn.fr',
-  'https://vid.puffyan.us',
-  'https://invidious.privacyredirect.com',
-  'https://y.com.sb',
-  'https://inv.tux.pizza',
-  'https://invidious.protokoll-11.de',
-];
+Log.setLevel(Log.Level.WARNING);
+
+let innertubeInstance = null;
+
+async function getInnertube() {
+  if (innertubeInstance) return innertubeInstance;
+  Platform.shim.eval = async (data) => {
+    const fn = new Function(data.output);
+    return fn();
+  };
+  innertubeInstance = await Innertube.create({
+    generate_session_locally: true,
+    client_type: 'MWEB',
+  });
+  return innertubeInstance;
+}
 
 export async function searchYouTube(query, limit = 20) {
   const results = await YouTube.search(query, { limit, type: 'video' });
@@ -29,7 +37,16 @@ function extractVideoId(urlOrId) {
 }
 
 async function tryInvidious(videoId) {
-  for (const instance of INVIDIOUS_INSTANCES) {
+  const instances = [
+    'https://inv.nadeko.net',
+    'https://invidious.fdn.fr',
+    'https://vid.puffyan.us',
+    'https://invidious.privacyredirect.com',
+    'https://y.com.sb',
+    'https://inv.tux.pizza',
+    'https://invidious.protokoll-11.de',
+  ];
+  for (const instance of instances) {
     try {
       const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=title,author,lengthSeconds,adaptiveFormats,videoId`, {
         signal: AbortSignal.timeout(10000),
@@ -99,6 +116,23 @@ async function tryYtDlp(videoUrl) {
   };
 }
 
+async function tryYoutubeJs(videoId) {
+  const yt = await getInnertube();
+  const format = await yt.getStreamingData(videoId, { type: 'audio', quality: 'best' });
+  const streamUrl = format.url;
+  if (!streamUrl) throw new Error('No stream URL in format');
+  const info = await yt.getBasicInfo(videoId);
+  return {
+    id: videoId,
+    title: info.basic_info.title || 'Unknown',
+    artist: info.basic_info.channel?.name || 'YouTube',
+    duration: (info.basic_info.duration || 0) * 1000,
+    thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    streamUrl,
+    type: format.mime_type?.includes('audio/webm') ? 'webm' : 'mp4',
+  };
+}
+
 export async function resolveYouTubeStream(urlOrId) {
   let videoUrl = urlOrId;
   if (!videoUrl.startsWith('http')) {
@@ -114,6 +148,10 @@ export async function resolveYouTubeStream(urlOrId) {
   try {
     const invidious = await tryInvidious(videoId);
     if (invidious) return invidious;
+  } catch {}
+
+  try {
+    return await tryYoutubeJs(videoId);
   } catch {}
 
   try {

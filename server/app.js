@@ -39,9 +39,9 @@ app.get('/api/soundcloud/search', async (req, res) => {
 
 app.get('/api/soundcloud/stream', async (req, res) => {
   try {
-    const { url } = req.query;
-    if (!url) return res.status(400).json({ error: 'Missing query param "url"' });
-    const stream = await resolveSoundCloudStream(url);
+    const { url, id } = req.query;
+    if (!url && !id) return res.status(400).json({ error: 'Missing query param "url" or "id"' });
+    const stream = await resolveSoundCloudStream(url, id);
     res.json(stream);
   } catch (err) {
     res.status(500).json({ error: err.message });

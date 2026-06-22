@@ -1,5 +1,8 @@
 import SoundCloud from 'soundcloud-scraper';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 
+const execFileAsync = promisify(execFile);
 const client = new SoundCloud.Client();
 let cachedKey = null;
 let keyExpiry = 0;
@@ -102,8 +105,56 @@ async function resolveUrl(url, key) {
   return res.json();
 }
 
-export async function resolveSoundCloudStream(url) {
-  const trackId = extractTrackId(url);
+async function searchBySlug(url, key) {
+  const parts = url.replace(/\/+$/, '').split('/');
+  const slug = parts[parts.length - 1];
+  if (!slug) return null;
+  const res = await fetch(`https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(slug)}&client_id=${key}&limit=10`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const normalizedUrl = url.toLowerCase().replace(/\/+$/, '');
+  const match = (data.collection || []).find(t => t.permalink_url?.toLowerCase().replace(/\/+$/, '') === normalizedUrl);
+  if (match) {
+    const trackRes = await fetch(`https://api-v2.soundcloud.com/tracks/${match.id}?client_id=${key}`);
+    if (trackRes.ok) return trackRes.json();
+  }
+  return null;
+}
+
+async function tryYtdlpFallback(url) {
+  try {
+    const key = await getApiKey();
+    const { stdout } = await execFileAsync('yt-dlp', [
+      '--no-warnings', '--no-playlist',
+      '-f', 'bestaudio/best',
+      '-g',
+      '--socket-timeout', '15',
+      '--extractor-args', `soundcloud:client_id=${key}`,
+      url,
+    ], { timeout: 20000 });
+    const streamUrl = stdout.trim().split('\n')[0];
+    if (streamUrl && streamUrl.startsWith('http')) return streamUrl;
+  } catch {}
+  return null;
+}
+
+async function tryYtdlpMetadata(url) {
+  try {
+    const key = await getApiKey();
+    const { stdout } = await execFileAsync('yt-dlp', [
+      '--no-warnings', '--no-playlist',
+      '--dump-json',
+      '--socket-timeout', '15',
+      '--extractor-args', `soundcloud:client_id=${key}`,
+      url,
+    ], { timeout: 20000 });
+    return JSON.parse(stdout);
+  } catch {}
+  return null;
+}
+
+export async function resolveSoundCloudStream(url, directId) {
+  const trackId = directId || extractTrackId(url);
   let key = await getApiKey();
   let trackData = null;
 
@@ -112,6 +163,7 @@ export async function resolveSoundCloudStream(url) {
     if (res.ok) trackData = await res.json();
   } else {
     trackData = await resolveUrl(url, key);
+    if (!trackData) trackData = await searchBySlug(url, key);
   }
 
   if (!trackData || !trackData.media) {
@@ -121,6 +173,7 @@ export async function resolveSoundCloudStream(url) {
       if (res.ok) trackData = await res.json();
     } else {
       trackData = await resolveUrl(url, key);
+      if (!trackData) trackData = await searchBySlug(url, key);
     }
   }
 
@@ -141,6 +194,22 @@ export async function resolveSoundCloudStream(url) {
     } catch {}
   }
 
+  if (!trackData) {
+    const meta = await tryYtdlpMetadata(url);
+    const ytdlpUrl = await tryYtdlpFallback(url);
+    if (meta && ytdlpUrl) {
+      return {
+        id: String(meta.id || trackId || ''),
+        title: meta.title || 'Unknown',
+        artist: meta.uploader || meta.artist || 'Unknown',
+        duration: (meta.duration || 0) * 1000,
+        thumbnail: meta.thumbnail || null,
+        streamUrl: ytdlpUrl,
+        type: 'progressive',
+      };
+    }
+  }
+
   const transcodings = trackData?.media?.transcodings || [];
   let result = await resolveStreamFromTranscodings(transcodings, key);
 
@@ -157,6 +226,13 @@ export async function resolveSoundCloudStream(url) {
         result = { url: streamUrl, protocol: proto === 'encrypted-hls' ? 'hls' : proto };
         break;
       }
+    }
+  }
+
+  if (!result) {
+    const ytdlpUrl = await tryYtdlpFallback(trackData?.permalink_url || url);
+    if (ytdlpUrl) {
+      result = { url: ytdlpUrl, protocol: 'progressive' };
     }
   }
 
@@ -199,7 +275,38 @@ export async function getSoundCloudPlaylistTracks(playlistUrl) {
     trackCount: resolved.track_count,
     user: resolved.user?.username || 'Unknown',
   };
-  const tracks = resolved.tracks.filter(t => t && t.title).map(mapTrack);
+
+  const fullTracks = [];
+  const missingIds = [];
+  for (const t of resolved.tracks) {
+    if (t && typeof t === 'object' && t.title) {
+      fullTracks.push(t);
+    } else if (t && t.id) {
+      missingIds.push(t.id);
+    }
+  }
+
+  if (missingIds.length > 0) {
+    const batchSize = 50;
+    for (let i = 0; i < missingIds.length; i += batchSize) {
+      const batch = missingIds.slice(i, i + batchSize);
+      try {
+        const res = await fetch(`https://api-v2.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${key}&limit=${batchSize}`);
+        if (res.ok) {
+          const fetched = await res.json();
+          fullTracks.push(...(Array.isArray(fetched) ? fetched : []));
+        }
+      } catch {}
+    }
+  }
+
+  const orderedTracks = fullTracks.sort((a, b) => {
+    const aIdx = resolved.tracks.findIndex(t => t?.id === a.id);
+    const bIdx = resolved.tracks.findIndex(t => t?.id === b.id);
+    return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+  });
+
+  const tracks = orderedTracks.filter(t => t && t.title).map(mapTrack);
   return { playlist, tracks };
 }
 

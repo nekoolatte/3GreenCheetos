@@ -256,10 +256,30 @@ function ShuffleIcon() {
   );
 }
 
+function LoopOneIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 2l4 4-4 4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 11V9a4 4 0 014-4h14" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 22l-4-4 4-4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 13v2a4 4 0 01-4 4H3" />
+      <text x="12" y="14.5" textAnchor="middle" fill="currentColor" stroke="none" fontSize="7" fontWeight="bold" fontFamily="sans-serif">1</text>
+    </svg>
+  );
+}
+
 function CheckIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   );
 }
@@ -306,6 +326,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const [shuffleOn, setShuffleOn] = useState(false);
+  const [loopOne, setLoopOne] = useState(false);
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [downloadList, setDownloadList] = useState<(Track & { savedAt: number })[]>([]);
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
@@ -323,6 +344,7 @@ export default function App() {
   const playQueueRef = useRef(playQueue);
   const queueIndexRef = useRef(queueIndex);
   const shuffleRef = useRef(shuffleOn);
+  const loopOneRef = useRef(loopOne);
 
   activeServiceRef.current = activeService;
   viewRef.current = view;
@@ -333,6 +355,7 @@ export default function App() {
   playQueueRef.current = playQueue;
   queueIndexRef.current = queueIndex;
   shuffleRef.current = shuffleOn;
+  loopOneRef.current = loopOne;
 
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
@@ -389,6 +412,13 @@ export default function App() {
     const onTimeUpdate = () => setProgress(audio.currentTime * 1000);
     const onLoadedMetadata = () => setDuration(audio.duration * 1000);
     const onEnded = () => {
+      if (loopOneRef.current) {
+        const audio = getAudio();
+        audio.currentTime = 0;
+        audio.play();
+        setIsPlaying(true);
+        return;
+      }
       if (playQueueRef.current.length > 0 && queueIndexRef.current >= 0) {
         const nextIdx = queueIndexRef.current + 1;
         if (nextIdx < playQueueRef.current.length) {
@@ -637,6 +667,26 @@ export default function App() {
     setAddTrackToPlaylist(null);
   }, [activePlaylistId, loadUserPlaylist]);
 
+  const removeFromPlaylist = useCallback(async (playlistId: number, trackId: string) => {
+    await fetch(`${API}/api/playlists/${playlistId}/tracks/${trackId}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    setUserPlaylistTracks(prev => prev.filter(t => t.id !== trackId));
+  }, []);
+
+  const deletePlaylist = useCallback(async (playlistId: number) => {
+    await fetch(`${API}/api/playlists/${playlistId}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    setPlaylists(prev => prev.filter(p => p.id !== playlistId));
+    if (activePlaylistId === playlistId) {
+      setActivePlaylistId(null);
+      setUserPlaylistTracks([]);
+    }
+  }, [activePlaylistId]);
+
   const playTrackWithStream = useCallback(
     async (track: Track) => {
       setLoading(true);
@@ -664,7 +714,7 @@ export default function App() {
         if (!streamUrl) {
           const svc = activeServiceRef.current;
           const endpoints: Record<Service, string> = {
-            soundcloud: `${API}/api/soundcloud/stream?url=${encodeURIComponent(track.url || '')}`,
+            soundcloud: `${API}/api/soundcloud/stream?url=${encodeURIComponent(track.url || '')}&id=${encodeURIComponent(track.id)}`,
             youtube: `${API}/api/youtube/stream?url=${encodeURIComponent(track.url || `https://www.youtube.com/watch?v=${track.id}`)}`,
             spotify: `${API}/api/youtube/stream?url=${encodeURIComponent(track.url || `https://www.youtube.com/watch?v=${track.id}`)}`,
           };
@@ -804,7 +854,7 @@ export default function App() {
       const svc = activeServiceRef.current;
       const trackUrl = track.url || `https://www.youtube.com/watch?v=${track.id}`;
       const endpoints: Record<Service, string> = {
-        soundcloud: `${API}/api/soundcloud/stream?url=${encodeURIComponent(trackUrl)}`,
+        soundcloud: `${API}/api/soundcloud/stream?url=${encodeURIComponent(trackUrl)}&id=${encodeURIComponent(track.id)}`,
         youtube: `${API}/api/youtube/stream?url=${encodeURIComponent(trackUrl)}`,
         spotify: `${API}/api/youtube/stream?url=${encodeURIComponent(trackUrl)}`,
       };
@@ -977,15 +1027,15 @@ export default function App() {
         </div>
       )}
 
-      <header className="h-16 flex items-center gap-6 px-8 bg-gray-900/40 backdrop-blur-xl border-b border-white/[0.04] flex-shrink-0 z-10">
-        <div className="flex items-center gap-3">
+      <header className="h-16 flex items-center gap-4 px-5 bg-gray-900/40 backdrop-blur-xl border-b border-white/[0.04] flex-shrink-0 z-10">
+        <div className="flex items-center gap-2.5 flex-shrink-0">
           <img src={`${import.meta.env.BASE_URL}icon.jpg`} alt="icon" className="w-9 h-9 rounded-xl shadow-md shadow-black/30 ring-1 ring-white/[0.06]" />
-          <span className="text-lg font-bold whitespace-nowrap bg-gradient-to-r from-green-400 to-green-600 bg-clip-text text-transparent">3 Green Cheetos</span>
+          <span className="text-lg font-bold whitespace-nowrap text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">3 Green Cheetos</span>
         </div>
 
-        <div className="flex-1 mx-4">
+        <div className="flex-1 min-w-0 max-w-2xl">
           <div className="relative">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/20">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/30">
               <SearchIcon />
             </div>
             <input
@@ -994,7 +1044,7 @@ export default function App() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               placeholder="Search for music..."
-              className="w-full pl-12 pr-6 py-3 rounded-full bg-white/[0.03] border border-white/[0.05] text-white placeholder-white/20 outline-none focus:border-green-500/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(34,197,94,0.08)] transition-all duration-300 text-sm"
+              className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-green-500/40 focus:bg-white/[0.06] transition-all duration-300 text-sm truncate"
             />
           </div>
         </div>
@@ -1031,8 +1081,8 @@ export default function App() {
 
       <div className="flex flex-1 min-h-0">
         <aside className="w-[320px] bg-gray-900/30 border-r border-white/[0.04] flex flex-col overflow-hidden flex-shrink-0 backdrop-blur-sm">
-          <div className="p-5 flex-1 overflow-y-auto space-y-1">
-            <div className="text-[10px] text-white/20 uppercase tracking-[0.15em] px-4 py-2 font-semibold">Services</div>
+          <div className="p-4 flex-1 overflow-y-auto space-y-1">
+            <div className="text-[11px] text-white/25 uppercase tracking-[0.15em] px-3 py-2.5 font-semibold">Services</div>
             {(Object.keys(SERVICES) as Service[]).map((key) => (
               <button
                 key={key}
@@ -1048,23 +1098,23 @@ export default function App() {
                   setActivePlaylistId(null);
                   setUserPlaylistTracks([]);
                 }}
-                className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-base font-medium transition-all duration-200 ${
                   view === 'search' && activeService === key
                     ? 'bg-white/[0.06] text-white shadow-sm ring-1 ring-white/[0.04]'
                     : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: SERVICES[key].color }} />
+                <span className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: SERVICES[key].color }} />
                 {SERVICES[key].name}
               </button>
             ))}
 
             {user && (
               <>
-                <div className="text-[10px] text-white/20 uppercase tracking-[0.15em] px-4 py-2 mt-4 font-semibold">Library</div>
+                <div className="text-[11px] text-white/25 uppercase tracking-[0.15em] px-3 py-2.5 mt-4 font-semibold">Library</div>
                 <button
                   onClick={loadFavorites}
-                  className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-base transition-all duration-200 ${
                     view === 'favorites' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
                   }`}
                 >
@@ -1075,7 +1125,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={loadUserPlaylists}
-                  className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-base transition-all duration-200 ${
                     view === 'playlists' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
                   }`}
                 >
@@ -1086,46 +1136,54 @@ export default function App() {
                 </button>
 
                 {view === 'playlists' && (
-                  <div className="ml-3 space-y-0.5 mt-1">
+                  <div className="ml-4 space-y-1 mt-2">
                     <button
                       onClick={() => setShowCreatePlaylist(true)}
-                      className="w-full text-left px-4 py-2 rounded-lg text-sm text-green-400/70 hover:text-green-400 hover:bg-white/[0.03] transition-all duration-200"
+                      className="w-full text-left px-4 py-3 rounded-xl text-base text-green-400/70 hover:text-green-400 hover:bg-white/[0.03] transition-all duration-200"
                     >
                       + New Playlist
                     </button>
                     {showCreatePlaylist && (
-                      <div className="px-2 py-1">
+                      <div className="px-1 py-1">
                         <input
                           type="text"
                           placeholder="Playlist name"
                           value={newPlaylistName}
                           onChange={(e) => setNewPlaylistName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') createPlaylist(); if (e.key === 'Escape') setShowCreatePlaylist(false); }}
-                          className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.06] text-white text-sm placeholder-white/25 outline-none focus:border-green-500/50 transition-all duration-200"
+                          className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white text-base placeholder-white/25 outline-none focus:border-green-500/50 transition-all duration-200"
                           autoFocus
                         />
                       </div>
                     )}
                     {playlists.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => loadUserPlaylist(p.id)}
-                        className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-all duration-200 ${
-                          activePlaylistId === p.id ? 'bg-white/[0.06] text-white' : 'text-white/35 hover:text-white/60 hover:bg-white/[0.03]'
-                        }`}
-                      >
-                        {p.name}
-                      </button>
+                      <div key={p.id} className="group flex items-center">
+                        <button
+                          onClick={() => loadUserPlaylist(p.id)}
+                          className={`flex-1 text-left px-4 py-3 rounded-xl text-base transition-all duration-200 truncate ${
+                            activePlaylistId === p.id ? 'text-white bg-white/[0.06]' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
+                          }`}
+                        >
+                          {p.name}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deletePlaylist(p.id); }}
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-white/0 group-hover:text-white/30 hover:text-red-400 hover:bg-white/[0.06] transition-all duration-200 flex-shrink-0"
+                          title="Delete playlist"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
               </>
             )}
 
-            <div className="text-[10px] text-white/20 uppercase tracking-[0.15em] px-4 py-2 mt-4 font-semibold">Downloads</div>
+            <div className="text-[11px] text-white/25 uppercase tracking-[0.15em] px-3 py-2.5 mt-4 font-semibold">Downloads</div>
             <button
               onClick={() => { setView('downloads'); setSelectedArtist(null); setSelectedPlaylist(null); }}
-              className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm transition-all duration-200 ${
+              className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-base transition-all duration-200 ${
                 view === 'downloads' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
               }`}
             >
@@ -1141,7 +1199,7 @@ export default function App() {
         </aside>
 
         <main className="flex-1 min-h-0 overflow-y-auto">
-          <div className="p-8">
+          <div className="p-6 max-w-full">
             {error && (
               <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/[0.08] border border-red-500/15 text-red-400 text-sm backdrop-blur-sm">
                 {error}
@@ -1162,12 +1220,12 @@ export default function App() {
 
                 {(tracks.length > 0 || allArtists.length > 0 || allPlaylists.length > 0) && (
                   <>
-                    <div className="flex items-center gap-3 mb-8">
+                    <div className="flex items-center gap-2 mb-6 flex-wrap">
                       {(['tracks', 'artists', 'playlists'] as SearchTab[]).map((tab) => (
                         <button
                           key={tab}
                           onClick={() => setSearchTab(tab)}
-                          className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 capitalize ${
+                          className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 capitalize whitespace-nowrap ${
                             searchTab === tab
                               ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
                               : 'bg-white/[0.04] text-white/40 hover:bg-white/[0.08] hover:text-white/70'
@@ -1318,8 +1376,8 @@ export default function App() {
                   Back to search
                 </button>
 
-                <div className="flex items-end gap-8 mb-10">
-                  <div className="w-52 h-52 rounded-3xl overflow-hidden bg-white/[0.03] flex-shrink-0 shadow-2xl shadow-black/40 ring-1 ring-white/[0.06]">
+                <div className="flex items-end gap-6 mb-10 overflow-hidden">
+                  <div className="w-48 h-48 rounded-3xl overflow-hidden bg-white/[0.03] flex-shrink-0 shadow-2xl shadow-black/40 ring-1 ring-white/[0.06]">
                     {selectedArtist.avatar ? (
                       <img src={selectedArtist.avatar} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -1330,7 +1388,7 @@ export default function App() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-white/35 uppercase tracking-widest font-semibold mb-2">Artist</p>
-                    <h1 className="text-5xl font-extrabold mb-3 truncate tracking-tight">{selectedArtist.name}</h1>
+                    <h1 className="text-4xl font-extrabold mb-3 truncate tracking-tight">{selectedArtist.name}</h1>
                     <p className="text-sm text-white/35">{selectedArtist.trackCount} tracks</p>
                     {artistTracks.length > 0 && (
                       <div className="flex items-center gap-3 mt-5">
@@ -1418,8 +1476,8 @@ export default function App() {
                   Back to search
                 </button>
 
-                <div className="flex items-end gap-8 mb-10">
-                  <div className="w-52 h-52 rounded-3xl overflow-hidden bg-white/[0.03] flex-shrink-0 shadow-2xl shadow-black/40 ring-1 ring-white/[0.06]">
+                <div className="flex items-end gap-6 mb-10 overflow-hidden">
+                  <div className="w-48 h-48 rounded-3xl overflow-hidden bg-white/[0.03] flex-shrink-0 shadow-2xl shadow-black/40 ring-1 ring-white/[0.06]">
                     {selectedPlaylist.artwork ? (
                       <img src={selectedPlaylist.artwork} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -1430,7 +1488,7 @@ export default function App() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-white/35 uppercase tracking-widest font-semibold mb-2">Playlist</p>
-                    <h1 className="text-5xl font-extrabold mb-3 truncate tracking-tight">{selectedPlaylist.name}</h1>
+                    <h1 className="text-4xl font-extrabold mb-3 truncate tracking-tight">{selectedPlaylist.name}</h1>
                     <p className="text-sm text-white/35">
                       {playlistTracks.length || selectedPlaylist.trackCount || 0} tracks
                       {selectedPlaylist.user ? ` · by ${selectedPlaylist.user}` : ''}
@@ -1768,6 +1826,13 @@ export default function App() {
                             >
                               {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
                             </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); if (activePlaylistId) removeFromPlaylist(activePlaylistId, track.id); }}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-white/[0.06] transition-all duration-200"
+                              title="Remove from playlist"
+                            >
+                              <TrashIcon />
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1859,6 +1924,15 @@ export default function App() {
               title="Shuffle"
             >
               <ShuffleIcon />
+            </button>
+            <button
+              onClick={() => setLoopOne(!loopOne)}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                loopOne ? 'text-green-400 bg-green-500/10' : 'text-white/30 hover:text-white'
+              }`}
+              title={loopOne ? 'Loop: One (click to disable)' : 'Loop: Off (click to loop one)'}
+            >
+              <LoopOneIcon />
             </button>
             <span className="text-white/25">
               <VolumeIcon volume={volume} />
