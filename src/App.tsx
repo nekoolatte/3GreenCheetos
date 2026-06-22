@@ -457,6 +457,41 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const layer = document.getElementById('stars-layer');
+    if (!layer) return;
+    layer.innerHTML = '';
+    const colors = ['#e8eaff', '#ffe4e6', '#dbeafe', '#cffafe', '#d1fae5', '#f3e8ff', '#fef3c7'];
+    for (let i = 0; i < 200; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      const x = Math.random() * 100;
+      const y = Math.random() * 100;
+      star.style.left = `${x}%`;
+      star.style.top = `${y}%`;
+      const r = Math.random();
+      if (r < 0.45) {
+        star.classList.add('star-tiny');
+        star.style.animation = `twinkle3 ${4 + Math.random() * 6}s ${Math.random() * 5}s ease-in-out infinite`;
+      } else if (r < 0.7) {
+        star.classList.add('star-small');
+        star.style.animation = `twinkle1 ${3 + Math.random() * 5}s ${Math.random() * 4}s ease-in-out infinite`;
+      } else if (r < 0.85) {
+        star.classList.add('star-medium');
+        star.style.animation = `twinkle2 ${4 + Math.random() * 6}s ${Math.random() * 3}s ease-in-out infinite`;
+      } else if (r < 0.95) {
+        star.classList.add('star-bright');
+        star.style.animation = `slowPulse ${5 + Math.random() * 8}s ${Math.random() * 5}s ease-in-out infinite`;
+      } else {
+        star.classList.add('star-colored');
+        star.style.background = colors[Math.floor(Math.random() * colors.length)];
+        star.style.boxShadow = `0 0 6px ${colors[Math.floor(Math.random() * colors.length)]}44, 0 0 12px ${colors[Math.floor(Math.random() * colors.length)]}22`;
+        star.style.animation = `slowPulse ${6 + Math.random() * 8}s ${Math.random() * 5}s ease-in-out infinite`;
+      }
+      layer.appendChild(star);
+    }
+  }, []);
+
   const isFavorited = useCallback((trackId: string) => {
     return favorites.some(f => f.track_id === trackId);
   }, [favorites]);
@@ -944,10 +979,20 @@ export default function App() {
   const allPlaylists = [...scPlaylists, ...spPlaylists];
 
   return (
-    <div className="h-screen flex flex-col bg-gray-950 text-white overflow-hidden font-sans">
+    <div className="h-screen flex flex-col overflow-hidden font-sans relative">
+      <div id="space-bg">
+        <div className="nebula-glow nebula-glow-1" />
+        <div className="nebula-glow nebula-glow-2" />
+        <div className="nebula-glow nebula-glow-3" />
+        <div className="stars-layer" id="stars-layer" />
+        <div className="shooting-star shooting-star-1" />
+        <div className="shooting-star shooting-star-2" />
+        <div className="shooting-star shooting-star-3" />
+      </div>
+      <div className="relative z-10 h-screen flex flex-col overflow-hidden text-white">
       {showAuth && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50" onClick={() => setShowAuth(false)}>
-          <div className="animate-slide-up bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-3xl p-10 w-full max-w-md shadow-2xl shadow-black/50 relative" onClick={(e) => e.stopPropagation()}>
+          <div className="animate-slide-up bg-black/80 backdrop-blur-xl border border-violet-500/15 rounded-3xl p-10 w-full max-w-md shadow-2xl shadow-violet-500/5 relative" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowAuth(false)} className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all duration-200">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -955,7 +1000,7 @@ export default function App() {
             </button>
 
             <div className="text-center mb-8">
-              <img src={`${import.meta.env.BASE_URL}icon.jpg`} alt="" className="w-16 h-16 rounded-2xl mx-auto mb-4 shadow-lg shadow-green-500/20" />
+              <img src={`${import.meta.env.BASE_URL}icon.jpg`} alt="" className="w-16 h-16 rounded-2xl mx-auto mb-4 shadow-lg shadow-violet-500/20" />
               <h2 className="text-2xl font-bold mb-1">{authMode === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
               <p className="text-white/40 text-sm">3 Green Cheetos Music Player</p>
             </div>
@@ -968,7 +1013,7 @@ export default function App() {
                 placeholder="Email"
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/20 transition-all duration-200"
+                className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all duration-200"
               />
               {authMode === 'register' && (
                 <input
@@ -976,7 +1021,7 @@ export default function App() {
                   placeholder="Display Name"
                   value={authDisplayName}
                   onChange={(e) => setAuthDisplayName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/20 transition-all duration-200"
+                  className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all duration-200"
                 />
               )}
               <input
@@ -984,12 +1029,12 @@ export default function App() {
                 placeholder="Password"
                 value={authPassword}
                 onChange={(e) => setAuthPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/20 transition-all duration-200"
+                className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all duration-200"
               />
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 font-semibold text-sm transition-all duration-200 shadow-lg shadow-green-600/20 hover:shadow-green-500/30"
+                className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 font-semibold text-sm transition-all duration-200 shadow-lg shadow-violet-600/20 hover:shadow-violet-500/30"
               >
                 {authLoading ? '...' : authMode === 'login' ? 'Login' : 'Register'}
               </button>
@@ -997,9 +1042,9 @@ export default function App() {
 
             <div className="mt-4 text-center text-sm text-white/40">
               {authMode === 'login' ? (
-                <>Don't have an account? <button onClick={() => { setAuthMode('register'); setAuthError(''); }} className="text-green-400 hover:text-green-300 transition-colors">Register</button></>
+                <>Don't have an account? <button onClick={() => { setAuthMode('register'); setAuthError(''); }} className="text-violet-400 hover:text-violet-300 transition-colors">Register</button></>
               ) : (
-                <>Already have an account? <button onClick={() => { setAuthMode('login'); setAuthError(''); }} className="text-green-400 hover:text-green-300 transition-colors">Login</button></>
+                <>Already have an account? <button onClick={() => { setAuthMode('login'); setAuthError(''); }} className="text-violet-400 hover:text-violet-300 transition-colors">Login</button></>
               )}
             </div>
           </div>
@@ -1008,7 +1053,7 @@ export default function App() {
 
       {addTrackToPlaylist && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-200" onClick={() => setAddTrackToPlaylist(null)}>
-          <div className="animate-slide-up bg-gray-900/95 backdrop-blur-xl border border-white/[0.08] rounded-3xl p-6 w-full max-w-sm shadow-2xl shadow-black/50" onClick={(e) => e.stopPropagation()}>
+          <div className="animate-slide-up bg-black/80 backdrop-blur-xl border border-violet-500/15 rounded-3xl p-6 w-full max-w-sm shadow-2xl shadow-violet-500/5" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">Add to Playlist</h3>
             <div className="space-y-1 max-h-60 overflow-y-auto">
               {playlists.map(p => (
@@ -1027,10 +1072,10 @@ export default function App() {
         </div>
       )}
 
-      <header className="h-16 flex items-center gap-4 px-5 bg-gray-900/40 backdrop-blur-xl border-b border-white/[0.04] flex-shrink-0 z-10">
+      <header className="h-16 flex items-center gap-4 px-5 bg-black/40 backdrop-blur-xl border-b border-violet-500/10 flex-shrink-0 z-10">
         <div className="flex items-center gap-3 flex-shrink-0">
           <img src={`${import.meta.env.BASE_URL}icon.jpg`} alt="icon" className="w-11 h-11 rounded-xl shadow-md shadow-black/30 ring-1 ring-white/[0.06]" />
-          <span className="text-xl font-bold whitespace-nowrap text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.35)]">3 Green Cheetos</span>
+          <span className="text-xl font-bold whitespace-nowrap bg-gradient-to-r from-violet-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(139,92,246,0.4)]">3 Green Cheetos</span>
         </div>
 
         <div className="flex-1 min-w-0 max-w-2xl">
@@ -1044,7 +1089,7 @@ export default function App() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               placeholder="Search for music..."
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-green-500/40 focus:bg-white/[0.06] transition-all duration-300 text-sm truncate"
+              className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-violet-500/10 text-white placeholder-white/25 outline-none focus:border-violet-500/40 focus:bg-white/[0.06] transition-all duration-300 text-sm truncate"
             />
           </div>
         </div>
@@ -1055,7 +1100,7 @@ export default function App() {
               {user.discord_avatar ? (
                 <img src={user.discord_avatar} alt="" className="w-8 h-8 rounded-full border border-white/10" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-sm font-bold">
+                <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-sm font-bold">
                   {user.username[0]?.toUpperCase()}
                 </div>
               )}
@@ -1070,7 +1115,7 @@ export default function App() {
           ) : (
             <button
               onClick={() => setShowAuth(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-white/50 hover:text-white text-sm transition-all duration-200"
+              className={`w-full flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-violet-500/10 text-white/50 hover:text-white text-sm transition-all duration-200`}
             >
               <UserIcon />
               <span className="hidden sm:inline">Login</span>
@@ -1080,7 +1125,7 @@ export default function App() {
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <aside className="w-[320px] bg-gray-900/30 border-r border-white/[0.04] flex flex-col overflow-hidden flex-shrink-0 backdrop-blur-sm">
+        <aside className="w-[320px] bg-black/30 border-r border-violet-500/10 flex flex-col overflow-hidden flex-shrink-0 backdrop-blur-sm">
           <div className="p-4 flex-1 overflow-y-auto space-y-1">
             <div className="text-[11px] text-white/25 uppercase tracking-[0.15em] px-3 py-2.5 font-semibold">Services</div>
             {(Object.keys(SERVICES) as Service[]).map((key) => (
@@ -1129,7 +1174,7 @@ export default function App() {
                     view === 'playlists' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
                   }`}
                 >
-                  <span className="text-green-400">
+                  <span className="text-violet-400">
                     <PlaylistIcon />
                   </span>
                   Playlists
@@ -1139,7 +1184,7 @@ export default function App() {
                   <div className="ml-4 space-y-1 mt-2">
                     <button
                       onClick={() => setShowCreatePlaylist(true)}
-                      className="w-full text-left px-4 py-3 rounded-xl text-base text-green-400/70 hover:text-green-400 hover:bg-white/[0.03] transition-all duration-200"
+                      className="w-full text-left px-4 py-3 rounded-xl text-base text-violet-400/70 hover:text-violet-400 hover:bg-white/[0.03] transition-all duration-200"
                     >
                       + New Playlist
                     </button>
@@ -1151,7 +1196,7 @@ export default function App() {
                           value={newPlaylistName}
                           onChange={(e) => setNewPlaylistName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') createPlaylist(); if (e.key === 'Escape') setShowCreatePlaylist(false); }}
-                          className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white text-base placeholder-white/25 outline-none focus:border-green-500/50 transition-all duration-200"
+                          className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white text-base placeholder-white/25 outline-none focus:border-violet-500/50 transition-all duration-200"
                           autoFocus
                         />
                       </div>
@@ -1187,7 +1232,7 @@ export default function App() {
                 view === 'downloads' ? 'bg-white/[0.06] text-white ring-1 ring-white/[0.04]' : 'text-white/40 hover:bg-white/[0.03] hover:text-white/70'
               }`}
             >
-              <span className="text-green-400">
+              <span className="text-violet-400">
                 <DownloadIcon />
               </span>
               Saved Offline
@@ -1227,7 +1272,7 @@ export default function App() {
                           onClick={() => setSearchTab(tab)}
                           className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 capitalize whitespace-nowrap ${
                             searchTab === tab
-                              ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
+                              ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/25'
                               : 'bg-white/[0.04] text-white/40 hover:bg-white/[0.08] hover:text-white/70'
                           }`}
                         >
@@ -1242,7 +1287,7 @@ export default function App() {
                           <div
                             key={track.id}
                             className={`animate-fade-in group bg-gradient-to-b from-white/[0.04] to-transparent hover:from-white/[0.07] rounded-2xl p-3.5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 cursor-pointer ${
-                              currentTrack?.id === track.id ? 'ring-2 ring-green-500/40 bg-green-500/5' : ''
+                              currentTrack?.id === track.id ? 'ring-2 ring-violet-500/40 bg-violet-500/5' : ''
                             }`}
                             style={{ animationDelay: `${Math.min(i * 40, 300)}ms` }}
                             onClick={() => playTrack(track, tracks)}
@@ -1259,7 +1304,7 @@ export default function App() {
                                 onClick={(e) => { e.stopPropagation(); playTrack(track, tracks); }}
                                 className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-all duration-300"
                               >
-                                <div className="w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-xl shadow-green-500/30 transform scale-75 group-hover:scale-100 transition-transform duration-300">
+                                <div className="w-14 h-14 rounded-full bg-violet-500 flex items-center justify-center shadow-xl shadow-violet-500/30 transform scale-75 group-hover:scale-100 transition-transform duration-300">
                                   <PlayIcon />
                                 </div>
                               </button>
@@ -1283,7 +1328,7 @@ export default function App() {
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setAddTrackToPlaylist(track); }}
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white/25 hover:text-green-400 hover:bg-white/[0.06] transition-all duration-200"
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white/25 hover:text-violet-400 hover:bg-white/[0.06] transition-all duration-200"
                                   title="Add to playlist"
                                 >
                                   <PlaylistIcon />
@@ -1294,8 +1339,8 @@ export default function App() {
                                     downloadingIds.has(track.id)
                                       ? 'text-yellow-400 animate-pulse'
                                       : downloadedIds.has(track.id)
-                                        ? 'text-green-400 hover:text-red-400 hover:bg-white/[0.06]'
-                                        : 'text-white/25 hover:text-green-400 hover:bg-white/[0.06]'
+                                        ? 'text-violet-400 hover:text-red-400 hover:bg-white/[0.06]'
+                                        : 'text-white/25 hover:text-violet-400 hover:bg-white/[0.06]'
                                   }`}
                                   title={downloadedIds.has(track.id) ? 'Remove offline' : 'Save offline'}
                                 >
@@ -1400,7 +1445,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={() => playTrack(artistTracks[0], artistTracks)}
-                          className="px-7 py-3.5 rounded-full bg-green-500 hover:bg-green-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                          className="px-7 py-3.5 rounded-full bg-violet-500 hover:bg-violet-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-[1.02] active:scale-[0.98]"
                         >
                           <PlayIcon /> Play All
                         </button>
@@ -1421,7 +1466,7 @@ export default function App() {
                       key={track.id}
                       className={`animate-fade-in flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
                         currentTrack?.id === track.id
-                          ? 'bg-green-500/10 text-green-300'
+                          ? 'bg-violet-500/10 text-violet-300'
                           : 'hover:bg-white/[0.04] text-white/70 hover:text-white'
                       }`}
                       style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
@@ -1459,8 +1504,8 @@ export default function App() {
                             downloadingIds.has(track.id)
                               ? 'text-yellow-400 animate-pulse'
                               : downloadedIds.has(track.id)
-                                ? 'text-green-400 hover:text-red-400'
-                                : 'text-white/30 hover:text-green-400'
+                                ? 'text-violet-400 hover:text-red-400'
+                                : 'text-white/30 hover:text-violet-400'
                           }`}
                         >
                           {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
@@ -1510,7 +1555,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={() => playTrack(playlistTracks[0], playlistTracks)}
-                          className="px-7 py-3.5 rounded-full bg-green-500 hover:bg-green-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                          className="px-7 py-3.5 rounded-full bg-violet-500 hover:bg-violet-400 font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-[1.02] active:scale-[0.98]"
                         >
                           <PlayIcon /> Play All
                         </button>
@@ -1531,7 +1576,7 @@ export default function App() {
                       key={track.id}
                       className={`animate-fade-in flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
                         currentTrack?.id === track.id
-                          ? 'bg-green-500/10 text-green-300'
+                          ? 'bg-violet-500/10 text-violet-300'
                           : 'hover:bg-white/[0.04] text-white/70 hover:text-white'
                       }`}
                       style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
@@ -1569,8 +1614,8 @@ export default function App() {
                             downloadingIds.has(track.id)
                               ? 'text-yellow-400 animate-pulse'
                               : downloadedIds.has(track.id)
-                                ? 'text-green-400 hover:text-red-400'
-                                : 'text-white/30 hover:text-green-400'
+                                ? 'text-violet-400 hover:text-red-400'
+                                : 'text-white/30 hover:text-violet-400'
                           }`}
                         >
                           {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
@@ -1607,7 +1652,7 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => playTrack(displayFavorites[0], displayFavorites)}
-                      className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                      className="px-5 py-2.5 rounded-full bg-violet-500 hover:bg-violet-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:scale-[1.02] active:scale-[0.98]"
                     >
                       <PlayIcon /> Play All
                     </button>
@@ -1625,7 +1670,7 @@ export default function App() {
                       key={track.id}
                       className={`animate-fade-in flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
                         currentTrack?.id === track.id
-                          ? 'bg-green-500/10 text-green-300'
+                          ? 'bg-violet-500/10 text-violet-300'
                           : 'hover:bg-white/[0.04] text-white/70 hover:text-white'
                       }`}
                     >
@@ -1652,7 +1697,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setAddTrackToPlaylist(track); }}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/25 hover:text-green-400 hover:bg-white/[0.06] opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/25 hover:text-violet-400 hover:bg-white/[0.06] opacity-0 group-hover:opacity-100 transition-all duration-200"
                         >
                           <PlaylistIcon />
                         </button>
@@ -1662,8 +1707,8 @@ export default function App() {
                             downloadingIds.has(track.id)
                               ? 'text-yellow-400 animate-pulse'
                               : downloadedIds.has(track.id)
-                                ? 'text-green-400 hover:text-red-400'
-                                : 'text-white/25 hover:text-green-400 hover:bg-white/[0.06]'
+                                ? 'text-violet-400 hover:text-red-400'
+                                : 'text-white/25 hover:text-violet-400 hover:bg-white/[0.06]'
                           }`}
                         >
                           {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
@@ -1678,7 +1723,7 @@ export default function App() {
             {view === 'downloads' && (
               <div>
                 <h1 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                  <span className="text-green-400"><DownloadIcon /></span>
+                  <span className="text-violet-400"><DownloadIcon /></span>
                   Saved Offline
                 </h1>
                 {downloadList.length === 0 && !loading && (
@@ -1700,7 +1745,7 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => playTrack(downloadList[0], downloadList)}
-                      className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                      className="px-5 py-2.5 rounded-full bg-violet-500 hover:bg-violet-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:scale-[1.02] active:scale-[0.98]"
                     >
                       <PlayIcon /> Play All
                     </button>
@@ -1712,7 +1757,7 @@ export default function App() {
                       key={track.id}
                       className={`animate-fade-in flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
                         currentTrack?.id === track.id
-                          ? 'bg-green-500/10 text-green-300'
+                          ? 'bg-violet-500/10 text-violet-300'
                           : 'hover:bg-white/[0.04] text-white/70 hover:text-white'
                       }`}
                     >
@@ -1759,12 +1804,12 @@ export default function App() {
               <div>
                 <div className="flex items-center justify-between mb-8">
                   <h1 className="text-2xl font-bold flex items-center gap-3">
-                    <span className="text-green-400"><PlaylistIcon /></span>
+                    <span className="text-violet-400"><PlaylistIcon /></span>
                     My Playlists
                   </h1>
                   <button
                     onClick={() => setShowCreatePlaylist(true)}
-                    className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                    className="px-5 py-2.5 rounded-full bg-violet-500 hover:bg-violet-400 text-sm font-semibold transition-all duration-200 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     + New Playlist
                   </button>
@@ -1778,10 +1823,10 @@ export default function App() {
                       value={newPlaylistName}
                       onChange={(e) => setNewPlaylistName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') createPlaylist(); if (e.key === 'Escape') setShowCreatePlaylist(false); }}
-                      className="flex-1 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-green-500/50 transition-all duration-200"
+                      className="flex-1 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white placeholder-white/25 outline-none focus:border-violet-500/50 transition-all duration-200"
                       autoFocus
                     />
-                    <button onClick={createPlaylist} className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-sm font-semibold transition-all duration-200 shadow-lg shadow-green-600/20">Create</button>
+                    <button onClick={createPlaylist} className="px-6 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-sm font-semibold transition-all duration-200 shadow-lg shadow-violet-600/20">Create</button>
                     <button onClick={() => { setShowCreatePlaylist(false); setNewPlaylistName(''); }} className="px-6 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/45 text-sm transition-all duration-200">Cancel</button>
                   </div>
                 )}
@@ -1799,7 +1844,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={() => { if (userPlaylistTracks.length > 0) playTrack(userPlaylistTracks[0], userPlaylistTracks); }}
-                          className="px-5 py-2.5 rounded-full bg-green-500 hover:bg-green-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                          className="px-5 py-2.5 rounded-full bg-violet-500 hover:bg-violet-400 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:scale-[1.02] active:scale-[0.98]"
                         >
                           <PlayIcon /> Play All
                         </button>
@@ -1817,7 +1862,7 @@ export default function App() {
                           key={track.id}
                           className={`animate-fade-in flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
                             currentTrack?.id === track.id
-                              ? 'bg-green-500/10 text-green-300'
+                              ? 'bg-violet-500/10 text-violet-300'
                               : 'hover:bg-white/[0.04] text-white/70 hover:text-white'
                           }`}
                         >
@@ -1850,8 +1895,8 @@ export default function App() {
                                 downloadingIds.has(track.id)
                                   ? 'text-yellow-400 animate-pulse'
                                   : downloadedIds.has(track.id)
-                                    ? 'text-green-400 hover:text-red-400 hover:bg-white/[0.06]'
-                                    : 'text-white/25 hover:text-green-400 hover:bg-white/[0.06]'
+                                    ? 'text-violet-400 hover:text-red-400 hover:bg-white/[0.06]'
+                                    : 'text-white/25 hover:text-violet-400 hover:bg-white/[0.06]'
                               }`}
                             >
                               {downloadedIds.has(track.id) ? <CheckIcon /> : <DownloadIcon />}
@@ -1884,7 +1929,7 @@ export default function App() {
 
             {loading && (
               <div className="flex items-center justify-center py-20">
-                <div className="w-10 h-10 border-2 border-green-500/20 border-t-green-500 rounded-full animate-spin" />
+                <div className="w-10 h-10 border-2 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
               </div>
             )}
           </div>
@@ -1892,7 +1937,7 @@ export default function App() {
       </div>
 
       {currentTrack && (
-        <div className="h-[96px] bg-gray-900/95 backdrop-blur-xl border-t border-white/[0.04] flex items-center gap-6 px-6 flex-shrink-0 shadow-[0_-4px_30px_rgba(0,0,0,0.4)]">
+        <div className="h-[96px] bg-black/60 backdrop-blur-xl border-t border-violet-500/10 flex items-center gap-6 px-6 flex-shrink-0 shadow-[0_-4px_30px_rgba(139,92,246,0.15)]">
           <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/[0.03] flex-shrink-0 shadow-lg ring-1 ring-white/[0.04]">
             {currentTrack.thumbnail ? (
               <img src={currentTrack.thumbnail} alt="" className="w-full h-full object-cover" />
@@ -1936,7 +1981,7 @@ export default function App() {
               onClick={handleSeek}
             >
               <div
-                className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full relative transition-all duration-100"
+                className="h-full bg-gradient-to-r from-violet-500 to-violet-400 rounded-full relative transition-all duration-100"
                 style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
               >
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md shadow-black/30 translate-x-1/2" />
@@ -1949,7 +1994,7 @@ export default function App() {
             <button
               onClick={() => setShuffleOn(!shuffleOn)}
               className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                shuffleOn ? 'text-green-400 bg-green-500/10' : 'text-white/30 hover:text-white'
+                shuffleOn ? 'text-violet-400 bg-violet-500/10' : 'text-white/30 hover:text-white'
               }`}
               title="Shuffle"
             >
@@ -1958,7 +2003,7 @@ export default function App() {
             <button
               onClick={() => setLoopOne(!loopOne)}
               className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                loopOne ? 'text-green-400 bg-green-500/10' : 'text-white/30 hover:text-white'
+                loopOne ? 'text-violet-400 bg-violet-500/10' : 'text-white/30 hover:text-white'
               }`}
               title={loopOne ? 'Loop: One (click to disable)' : 'Loop: Off (click to loop one)'}
             >
@@ -1974,7 +2019,7 @@ export default function App() {
               step="0.01"
               value={volume}
               onChange={handleVolumeChange}
-              className="w-20 accent-green-500"
+              className="w-20 accent-violet-500"
             />
           </div>
 
@@ -1984,8 +2029,8 @@ export default function App() {
               downloadingIds.has(currentTrack.id)
                 ? 'text-yellow-400 bg-yellow-500/10'
                 : downloadedIds.has(currentTrack.id)
-                  ? 'text-green-400 bg-green-500/10 hover:text-red-400'
-                  : 'bg-white/[0.04] hover:bg-white/[0.08] text-white/35 hover:text-green-400'
+                  ? 'text-violet-400 bg-violet-500/10 hover:text-red-400'
+                  : 'bg-white/[0.04] hover:bg-white/[0.08] text-white/35 hover:text-violet-400'
             }`}
             title={downloadedIds.has(currentTrack.id) ? 'Remove offline' : 'Save offline'}
           >
@@ -1993,6 +2038,7 @@ export default function App() {
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }
